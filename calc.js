@@ -105,7 +105,8 @@ function rollingSpend(p) {
   return `30 ${NBSP}${rounded}`;
 }
 
-// Months until the offset-mortgage is paid off. Mirrors `time_remaining_until_payoff()`.
+// Months until the offset-mortgage is paid off. Based on `time_remaining_until_payoff()`, but
+// charges interest on loan minus offset (never below zero) and adds savings to the offset only.
 function monthsToPayoff(p, now) {
   const dailyRate = p.rate / AVERAGE_DAYS_IN_YEAR;
   let loan = -Math.abs(p.loan); // supplied as a positive balance; internally negative
@@ -120,8 +121,8 @@ function monthsToPayoff(p, now) {
     offset += monthlySavings;
 
     const daysInMonth = daysInMonthUTC(year, month);
-    const interest = (loan - offset) * dailyRate * daysInMonth;
-    loan = loan + interest + (p.pmt + monthlySavings);
+    const interest = Math.min(loan + offset, 0) * dailyRate * daysInMonth;
+    loan = loan + interest + p.pmt;
 
     month++;
     if (month > 11) {
@@ -154,7 +155,7 @@ export function parseParams(fragment) {
 
 // Build the exact multi-line output. Sections render only when their params are present,
 // so a partial fragment (e.g. loan-only) still works. With every param supplied the
-// result is byte-identical to the original app.
+// result is byte-identical to the original app except the loan line (see monthsToPayoff).
 export function computeOutput(p, now) {
   now = now || new Date();
   let out = "";
